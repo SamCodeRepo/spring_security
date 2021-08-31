@@ -1,6 +1,9 @@
 package internship.spring.security.appsecurity;
 
 import internship.spring.security.auth.ApplicationUserService;
+import internship.spring.security.jwt.JwtConfig;
+import internship.spring.security.jwt.JwtTokenVerifier;
+import internship.spring.security.jwt.JwtUsernamePasswordAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,10 +13,10 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
-import java.util.concurrent.TimeUnit;
+import javax.crypto.SecretKey;
 
 import static internship.spring.security.appsecurity.UserRole.*;
 
@@ -23,41 +26,31 @@ import static internship.spring.security.appsecurity.UserRole.*;
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationUserService applicationUserService;
+    private final JwtConfig jwtConfig;
+    private final SecretKey secretKey;
 
     @Autowired
-    public SecurityConfig(PasswordEncoder passwordEncoder, ApplicationUserService applicationUserService) {
+    public SecurityConfig(PasswordEncoder passwordEncoder, ApplicationUserService applicationUserService, JwtConfig jwtConfig, SecretKey secretKey) {
         this.passwordEncoder = passwordEncoder;
         this.applicationUserService = applicationUserService;
+        this.jwtConfig = jwtConfig;
+        this.secretKey = secretKey;
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
                 .csrf().disable()
+                .sessionManagement()
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                .and()
+                .addFilter(new JwtUsernamePasswordAuthenticationFilter(authenticationManager(), jwtConfig, secretKey))
+                .addFilterAfter(new JwtTokenVerifier (jwtConfig, secretKey),JwtUsernamePasswordAuthenticationFilter.class)
                 .authorizeRequests()
                 .antMatchers("/", "index", "/*", "/js/*").permitAll()                                          // two lines makes no pass login
                 .antMatchers("/api/**").hasRole(STUDENT.name())
                 .anyRequest()
-                .authenticated()
-                .and()
-                .formLogin()
-                .loginPage("/login").permitAll()
-                .defaultSuccessUrl("/courses", true)
-                .passwordParameter("password")
-                .usernameParameter("username")
-                .and()
-                .rememberMe()
-                .tokenValiditySeconds((int) TimeUnit.DAYS.toSeconds(21))
-                .key("somrthingverysecured")
-                .rememberMeParameter("remember-me")
-                .and()
-                .logout()
-                .logoutUrl("/logout")
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "GET"))
-                .clearAuthentication(true)
-                .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID", "remember-me")
-                .logoutSuccessUrl("/login");
+                .authenticated();
 
     }
 
