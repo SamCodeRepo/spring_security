@@ -1,2 +1,3 @@
-# Spring Security
-this version of spring security uses form_based authentication and it is fully functional through postman and browser.
+# Amazing Spring Security
+This project's evolution involves all the way from basic authentication to Json Web Token (JWT)
+
